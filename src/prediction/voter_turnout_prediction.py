@@ -296,9 +296,11 @@ class StatePredictor(object):
 
         self.log.info("Done creating RandomForestRegressor.")
 
+
     #------------------------------------
     # run
     #-------------------
+
 
     def run(self):
         '''
@@ -325,17 +327,60 @@ class StatePredictor(object):
         past_only_features = self.X_df.query(f"Election <= {election_yr}")
 
         # For Series, query() does not work. Use masks instead:
-
         mask = self.y_series.index.get_level_values('Election') <= election_yr
         past_only_target = self.y_series[mask]
 
-        arr = self.predict_one_election_kfolds(past_only_features,past_only_target)
-       # (pred_series_unique,truth_series_unique) = self.predict_one_election(past_only_features,past_only_target)
+        arr = self.predict_one_election_kfolds(past_only_features, past_only_target)
+        #(pred_series_unique,truth_series_unique) = self.predict_one_election(past_only_features,past_only_target)
 
-        for (pred,truth) in arr:
-            self.evaluate_model(pred, truth)
+        rmse = []
+        for (pred, truth) in arr:
+            rmse.append(self.evaluate_model(pred, truth))
+        print(rmse)
 
-        
+    # ------------------------------------
+    # run Random Forest for both midterm and presidential separately
+    # -------------------
+
+    def run_pres_mid(self):
+        presidential_features, midterm_features, \
+        presidential_labels, midterm_labels = self.presidential_midterm_features(self.X_df, self.y_series)
+
+        arr_pres = self.predict_one_election_kfolds(presidential_features, presidential_labels)
+        arr_mid = self.predict_one_election_kfolds(midterm_features, midterm_labels)
+
+        rmse_pres = []
+        rmse_mid = []
+        for (pred, truth) in arr_pres:
+            rmse_pres.append(self.evaluate_model(pred, truth))
+
+        for (pred, truth) in arr_mid:
+            rmse_mid.append(self.evaluate_model(pred, truth))
+
+
+        print("RMSE for presidential years:", rmse_pres)
+        print("RMSE for midterm years:", rmse_mid)
+
+    #------------------------------------
+    # extract and separate presidential and midterm features
+    #-------------------
+
+    def presidential_midterm_features(self, X_df, y_series):
+        pres_feat_2016 = self.X_df.query("Election == 2016")
+        pres_feat_2012 = self.X_df.query("Election == 2012")
+        pres_feat_2008 = self.X_df.query("Election == 2008")
+
+        mid_feat_2018 = self.X_df.query("Election == 2018")
+        mid_feat_2014 = self.X_df.query("Election == 2014")
+        mid_feat_2010 = self.X_df.query("Election == 2010")
+
+        presidential_features = pd.concat([pres_feat_2008,pres_feat_2012,pres_feat_2016], ignore_index=True)
+        midterm_features = pd.concat([mid_feat_2018,mid_feat_2014,mid_feat_2010], ignore_index=True)
+
+        presidential_labels = y_series[np.in1d(y_series.index.get_level_values(1), [2008, 2012, 2016])]
+        midterm_labels = y_series[np.in1d(y_series.index.get_level_values(1), [2010, 2014, 2018])]
+
+        return presidential_features, midterm_features, presidential_labels, midterm_labels
     #------------------------------------
     # predict_one_election 
     #-------------------
@@ -439,7 +484,7 @@ class StatePredictor(object):
 
     def predict_one_election_kfolds(self, X_df, y_series):
         # KFolds cross-validation
-        kf = KFold(n_splits=5, shuffle=True, random_state=42)
+        kf = KFold(n_splits=5, shuffle=True)
         KFold(n_splits=5)
 
         pred, truth = X_df, y_series
@@ -597,9 +642,10 @@ class StatePredictor(object):
         #*****viz.feature_importance(self.rand_forest, self.feature_names)
         # Visualize panel of states, each chart
         # showing a truth vs. prediction scatterplot:
-        print("RMSE:", rmse)
+
 
         viz.real_and_estimated(predictions,test_labels,rmse_values)
+        return rmse
 
     # ------------------------------------
     # rmse_statewise
@@ -1690,5 +1736,7 @@ if __name__ == '__main__':
 # 
 #     args = parser.parse_args();
 
-    StatePredictor().run()
+    #StatePredictor().run()
+    StatePredictor().run_pres_mid()
     input("Press ENTER to quit...")
+
