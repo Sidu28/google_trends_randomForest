@@ -6,6 +6,7 @@ Created on Sep 4, 2020
 
 import os, sys
 import pickle
+import argparse
 
 from category_encoders.binary import BinaryEncoder
 from category_encoders.leave_one_out import LeaveOneOutEncoder
@@ -277,7 +278,7 @@ class StatePredictor(object):
         self.X_df          = X.copy()
         self.y_series      = y.copy()
 
-        self.X_df = self.X_df.drop(['TotalIneligibleFelons', 'Overseas Eligible.1', 'Year','VEP_Hispanic', 'VEP_Black', 'VEP_White'], axis=1)
+        self.X_df = self.X_df.drop(['TotalIneligibleFelons', 'Year','VEP_Hispanic', 'VEP_Black', 'VEP_White'], axis=1)
         # Make the final feature vectors (incl. label_col)
         # available to other methods:
         self.election_features = election_features
@@ -1776,8 +1777,23 @@ if __name__ == '__main__':
 # 
 #     args = parser.parse_args();
 
-    #StatePredictor().run_for_2018()
-    #StatePredictor().run_for_each_year()
-    StatePredictor().run_pres_mid()
+
+    parser = argparse.ArgumentParser(description="Execute RandomForest for Voting-related statistics")
+    parser.add_argument('-a', action='store_true')
+    parser.add_argument('-b', action='store_true')
+    parser.add_argument('-c', action='store_true')
+    args = parser.parse_args();
+
+    if args.a:
+        StatePredictor().run_for_2018()
+    elif args.b:
+        StatePredictor().run_for_each_year()
+    elif args.c:
+        StatePredictor().run_pres_mid()
+    else:
+        raise argparse.ArgumentError("Specify a Flag")
+
+
+
     input("Press ENTER to quit...")
 
