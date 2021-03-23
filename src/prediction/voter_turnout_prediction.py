@@ -17,9 +17,10 @@ from sklearn.metrics import make_scorer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split, KFold
-print(os.getcwd())
+
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from population_age_transformer import PopulationAgeTransformer
 
 
@@ -29,6 +30,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from covid_utils import CovidUtils
 from utils.logging_service import LoggingService
 from visualization import Visualizer
+
 
 
 print(sys.path)
@@ -274,7 +276,8 @@ class StatePredictor(object):
         self.target_name   = label_col
         self.X_df          = X.copy()
         self.y_series      = y.copy()
-        
+
+        self.X_df = self.X_df.drop(['TotalIneligibleFelons', 'Overseas Eligible.1', 'Year','VEP_Hispanic', 'VEP_Black', 'VEP_White'], axis=1)
         # Make the final feature vectors (incl. label_col)
         # available to other methods:
         self.election_features = election_features
@@ -302,27 +305,7 @@ class StatePredictor(object):
     #-------------------
 
 
-    def run(self):
-        '''
-        for election_yr in self.election_years:
-            
-            # For a given election, we can only use
-            # feature values from the past, or from 
-            # measurements taken just before the election,
-            # like query counts. But not from the future:
-
-            past_only_features = self.X_df.query(f"Election <= {election_yr}")
-            
-            # For Series, query() does not work. Use masks instead:
-            
-            mask = self.y_series.index.get_level_values('Election') <= election_yr
-            past_only_target = self.y_series[mask]
-
-            (pred_series_unique, 
-             truth_series_unique) = self.predict_one_election(past_only_features, 
-                                                              past_only_target)
-        self.evaluate_model(pred_series_unique, truth_series_unique)
-        '''
+    def run_for_2018(self):
         election_yr = 2018
         past_only_features = self.X_df.query(f"Election <= {election_yr}")
 
@@ -330,13 +313,60 @@ class StatePredictor(object):
         mask = self.y_series.index.get_level_values('Election') <= election_yr
         past_only_target = self.y_series[mask]
 
-        arr = self.predict_one_election_kfolds(past_only_features, past_only_target)
+        arr, important_feat = self.predict_one_election_kfolds(past_only_features, past_only_target)
         #(pred_series_unique,truth_series_unique) = self.predict_one_election(past_only_features,past_only_target)
 
         rmse = []
         for (pred, truth) in arr:
             rmse.append(self.evaluate_model(pred, truth))
         print(rmse)
+
+        x = self.X_df.dropna(axis=1)
+        fig = plt.figure(figsize=(10, 5))
+        plt.barh(x.columns, important_feat)
+        plt.xlabel("Courses offered")
+        plt.ylabel("No. of students enrolled")
+        plt.title("Students enrolled in different courses")
+        plt.show()
+
+
+
+    #------------------------------------
+    # run but for year "n", training the rf regressor only on years < "n"
+    #-------------------
+
+    def run_for_each_year(self):
+        rmse_dict = {}
+        for election_yr in self.election_years:
+            # For a given election, we can only use
+            # feature values from the past, or from
+            # measurements taken just before the election,
+            # like query counts. But not from the future:
+
+            past_only_features = self.X_df.query(f"Election <= {election_yr}")
+
+            # For Series, query() does not work. Use masks instead:
+
+            mask = self.y_series.index.get_level_values('Election') <= election_yr
+            past_only_target = self.y_series[mask]
+
+            arr, important_features = self.predict_one_election_kfolds(past_only_features, past_only_target)
+            rmse = []
+            for (pred, truth) in arr:
+                rmse.append(self.evaluate_model(pred, truth))
+            rmse_dict[election_yr] = rmse
+
+        print(rmse_dict)
+
+        x = self.X_df.dropna(axis=1)
+        fig = plt.figure(figsize=(10, 5))
+        plt.barh(x.columns, important_features)
+        plt.xlabel("Courses offered")
+        plt.ylabel("No. of students enrolled")
+        plt.title("Students enrolled in different courses")
+        plt.show()
+
+        #Visualizer().display_rmse(rmse_dict)
 
     # ------------------------------------
     # run Random Forest for both midterm and presidential separately
@@ -346,8 +376,8 @@ class StatePredictor(object):
         presidential_features, midterm_features, \
         presidential_labels, midterm_labels = self.presidential_midterm_features(self.X_df, self.y_series)
 
-        arr_pres = self.predict_one_election_kfolds(presidential_features, presidential_labels)
-        arr_mid = self.predict_one_election_kfolds(midterm_features, midterm_labels)
+        arr_pres, important_features_pres = self.predict_one_election_kfolds(presidential_features, presidential_labels)
+        arr_mid, important_features_mid = self.predict_one_election_kfolds(midterm_features, midterm_labels)
 
         rmse_pres = []
         rmse_mid = []
@@ -360,6 +390,15 @@ class StatePredictor(object):
 
         print("RMSE for presidential years:", rmse_pres)
         print("RMSE for midterm years:", rmse_mid)
+
+        x = self.X_df.dropna(axis=1)
+        plt.subplot(2, 1, 1)
+        pop = plt.barh(x.columns, important_features_pres)
+        plt.ylabel('Population in Millions')
+        plt.subplot(2, 1, 2)
+        gdp = plt.barh(x.columns, important_features_mid)
+        plt.ylabel('GDP in Billions')
+        plt.show()
 
     #------------------------------------
     # extract and separate presidential and midterm features
@@ -522,6 +561,10 @@ class StatePredictor(object):
             self.rand_forest.fit(X, y)
             self.log.info("Done training the regressor.")
 
+            important_features = self.rand_forest.feature_importances_
+
+
+
             X_test = X_test[:, ~np.all(np.isnan(X_test), axis=0)]
             predictions = self.rand_forest.predict(X_test)
 
@@ -545,7 +588,7 @@ class StatePredictor(object):
 
 
 
-        return pred_arr
+        return pred_arr, important_features
 
     #------------------------------------
     # optimize_hyperparameters 
@@ -644,12 +687,9 @@ class StatePredictor(object):
         # showing a truth vs. prediction scatterplot:
 
 
-        viz.real_and_estimated(predictions,test_labels,rmse_values)
+        #viz.real_and_estimated(predictions,test_labels,rmse_values)
         return rmse
 
-    # ------------------------------------
-    # rmse_statewise
-    # -------------------
 
     def rmse_statewise(self, predicted, truth):
         '''
@@ -1736,7 +1776,8 @@ if __name__ == '__main__':
 # 
 #     args = parser.parse_args();
 
-    #StatePredictor().run()
+    #StatePredictor().run_for_2018()
+    #StatePredictor().run_for_each_year()
     StatePredictor().run_pres_mid()
     input("Press ENTER to quit...")
 

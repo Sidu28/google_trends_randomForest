@@ -12,7 +12,7 @@ import random
 
 import matplotlib.patches as mpatches
 from utils.logging_service import LoggingService
-
+from statistics import mean
 
 class Visualizer(object):
     '''
@@ -32,6 +32,19 @@ class Visualizer(object):
     #------------------------------------
     # feature_importance 
     #-------------------
+
+    def display_rmse(self, dict):
+        for rmse in dict.keys():
+            dict[rmse] = mean(dict[rmse])
+
+        keys = dict.keys()
+        values = dict.values()
+        plt.bar(keys,values)
+        plt.show()
+
+
+
+
     
     def feature_importance(self, forest, feature_names):
 
