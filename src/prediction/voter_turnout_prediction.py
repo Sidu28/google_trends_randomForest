@@ -278,7 +278,13 @@ class StatePredictor(object):
         self.X_df          = X.copy()
         self.y_series      = y.copy()
 
-        self.X_df = self.X_df.drop(['TotalIneligibleFelons', 'Year','VEP_Hispanic', 'VEP_Black', 'VEP_White'], axis=1)
+        self.X_df = self.X_df.drop(['TotalIneligibleFelons', 'VEP_White', 'VEP_Black',
+       'VEP_Hispanic','NonCitizenPerc', 'Overseas Eligible.1', 'MeanPastTurnout', 'Year',
+       'State Abv.1', 'State Abv.2', 'State Abv.3', 'State Abv.4',
+       'State Abv.5', 'State Abv.6', 'State Abv.7', 'State Abv.8',
+       'State Abv.9', 'State Abv.10', 'VEP_Other', 'Week', 'WeekDay',
+       'DayCount', 'Disaster', 'Age_19_25', 'Age_26_34', 'Age_35_54',
+       'Age_55_64', 'Age_65_up'], axis=1)
         # Make the final feature vectors (incl. label_col)
         # available to other methods:
         self.election_features = election_features
@@ -314,11 +320,12 @@ class StatePredictor(object):
         mask = self.y_series.index.get_level_values('Election') <= election_yr
         past_only_target = self.y_series[mask]
 
-        arr, important_feat = self.predict_one_election_kfolds(past_only_features, past_only_target)
+
+        rmse_values, important_feat = self.predict_one_election_kfolds(past_only_features, past_only_target)
         #(pred_series_unique,truth_series_unique) = self.predict_one_election(past_only_features,past_only_target)
 
         rmse = []
-        for (pred, truth) in arr:
+        for (pred, truth) in rmse_values:
             rmse.append(self.evaluate_model(pred, truth))
         print(rmse)
 
@@ -395,10 +402,10 @@ class StatePredictor(object):
         x = self.X_df.dropna(axis=1)
         plt.subplot(2, 1, 1)
         pop = plt.barh(x.columns, important_features_pres)
-        plt.ylabel('Population in Millions')
+        plt.ylabel('Presidential Election')
         plt.subplot(2, 1, 2)
         gdp = plt.barh(x.columns, important_features_mid)
-        plt.ylabel('GDP in Billions')
+        plt.ylabel('Midterm Elections')
         plt.show()
 
     #------------------------------------
@@ -1783,7 +1790,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', action='store_true')
     parser.add_argument('-c', action='store_true')
     args = parser.parse_args();
-
+    '''
     if args.a:
         StatePredictor().run_for_2018()
     elif args.b:
@@ -1792,7 +1799,9 @@ if __name__ == '__main__':
         StatePredictor().run_pres_mid()
     else:
         raise argparse.ArgumentError("Specify a Flag")
-
+    
+    '''
+    StatePredictor().run_pres_mid()
 
 
     input("Press ENTER to quit...")
