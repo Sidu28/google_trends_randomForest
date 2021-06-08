@@ -285,6 +285,7 @@ class StatePredictor(object):
        'State Abv.9', 'State Abv.10', 'VEP_Other', 'Week', 'WeekDay',
        'DayCount', 'Disaster', 'Age_19_25', 'Age_26_34', 'Age_35_54',
        'Age_55_64', 'Age_65_up'], axis=1)
+
         # Make the final feature vectors (incl. label_col)
         # available to other methods:
         self.election_features = election_features
@@ -1789,7 +1790,8 @@ if __name__ == '__main__':
     parser.add_argument('-a', action='store_true')
     parser.add_argument('-b', action='store_true')
     parser.add_argument('-c', action='store_true')
-    args = parser.parse_args();
+    args = parser.parse_args()
+    StatePredictor().run_pres_mid()
     '''
     if args.a:
         StatePredictor().run_for_2018()
@@ -1801,8 +1803,5 @@ if __name__ == '__main__':
         raise argparse.ArgumentError("Specify a Flag")
     
     '''
-    StatePredictor().run_pres_mid()
-
-
     input("Press ENTER to quit...")
 
